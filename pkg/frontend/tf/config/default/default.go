@@ -18,6 +18,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/spf13/pflag"
+
 	tfconfig "github.com/kubewharf/kelemetry/pkg/frontend/tf/config"
 	tfstep "github.com/kubewharf/kelemetry/pkg/frontend/tf/step"
 	"github.com/kubewharf/kelemetry/pkg/manager"
@@ -28,9 +30,23 @@ func init() {
 	manager.Global.ProvideMuxImpl("jaeger-transform-config/default", newProvider, tfconfig.Provider.DefaultId)
 }
 
+type options struct {
+	frontendDomain     string
+	resourceTagsToLink []string
+}
+
+func (options *options) Setup(fs *pflag.FlagSet) {
+	fs.StringVar(&options.frontendDomain, "jaeger-frontend-domain", "", "jaeger frontend domain e.g. http://localhost:3000")
+	fs.StringSliceVar(&options.resourceTagsToLink, "jaeger-transform-resource-link", []string{"nodes"},
+		"add resource link for span with these tags. e.g. 'nodes, apiservices.apiregistration.k8s.io'")
+}
+
+func (options *options) EnableFlag() *bool { return nil }
+
 type DefaultProvider struct {
 	manager.MuxImplBase
 
+	options        options
 	configs        map[tfconfig.Id]*tfconfig.Config
 	nameToConfigId map[string]tfconfig.Id
 	defaultConfig  tfconfig.Id
@@ -50,7 +66,7 @@ func newProvider() *DefaultProvider {
 
 func (p *DefaultProvider) MuxImplName() (name string, isDefault bool) { return "default", true }
 
-func (p *DefaultProvider) Options() manager.Options { return &manager.NoOptions{} }
+func (p *DefaultProvider) Options() manager.Options { return &p.options }
 
 func (p *DefaultProvider) Init(ctx context.Context) error {
 	p.registerDefaults()
@@ -70,6 +86,7 @@ func (p *DefaultProvider) registerDefaults() {
 		Name: "tree",
 		Steps: []tfconfig.Step{
 			{Visitor: tfstep.ReplaceNameVisitor{}},
+			p.getResourceLinkStep(),
 			{Visitor: tfstep.ClusterNameVisitor{}},
 			{Visitor: tfstep.PruneTagsVisitor{}},
 		},
@@ -79,6 +96,7 @@ func (p *DefaultProvider) registerDefaults() {
 		Name: "timeline",
 		Steps: []tfconfig.Step{
 			{Visitor: tfstep.ReplaceNameVisitor{}},
+			p.getResourceLinkStep(),
 			{Visitor: tfstep.ExtractNestingVisitor{
 				MatchesNestLevel: func(level string) bool {
 					return true
@@ -93,6 +111,7 @@ func (p *DefaultProvider) registerDefaults() {
 		Name: "tracing",
 		Steps: []tfconfig.Step{
 			{Visitor: tfstep.ReplaceNameVisitor{}},
+			p.getResourceLinkStep(),
 			{Visitor: tfstep.ExtractNestingVisitor{
 				MatchesNestLevel: func(level string) bool {
 					return level != "object"
@@ -109,6 +128,7 @@ func (p *DefaultProvider) registerDefaults() {
 		Name: "grouped",
 		Steps: []tfconfig.Step{
 			{Visitor: tfstep.ReplaceNameVisitor{}},
+			p.getResourceLinkStep(),
 			{Visitor: tfstep.ExtractNestingVisitor{
 				MatchesNestLevel: func(level string) bool {
 					return level != "object"
@@ -175,6 +195,13 @@ func getCollapseStep() tfconfig.Step {
 			zconstants.LogTypeRealVerbose:    "",
 			zconstants.LogTypeKelemetryError: "_debug",
 		},
+	}}
+}
+
+func (p *DefaultProvider) getResourceLinkStep() tfconfig.Step {
+	return tfconfig.Step{Visitor: tfstep.ResourceLinkVisitor{
+		Domain:       p.options.frontendDomain,
+		ResourceTags: p.options.resourceTagsToLink,
 	}}
 }
 

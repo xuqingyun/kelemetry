@@ -31,6 +31,7 @@ import (
 	"k8s.io/utils/clock"
 
 	"github.com/kubewharf/kelemetry/pkg/aggregator"
+	"github.com/kubewharf/kelemetry/pkg/aggregator/event"
 	"github.com/kubewharf/kelemetry/pkg/audit"
 	"github.com/kubewharf/kelemetry/pkg/audit/mq"
 	"github.com/kubewharf/kelemetry/pkg/filter"
@@ -287,7 +288,7 @@ func (recv *receiver) handleItem(
 		title += fmt.Sprintf(" (%s)", http.StatusText(int(message.ResponseStatus.Code)))
 	}
 
-	event := aggregator.NewEvent(field, title, message.RequestReceivedTimestamp.Time, "audit").
+	event := event.NewEvent(field, title, message.RequestReceivedTimestamp.Time, "audit").
 		WithEndTime(message.StageTimestamp.Time).
 		WithTag("username", username).
 		WithTag("userAgent", message.UserAgent).

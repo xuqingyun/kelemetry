@@ -28,7 +28,7 @@ import (
 	"k8s.io/utils/clock"
 	"k8s.io/utils/pointer"
 
-	"github.com/kubewharf/kelemetry/pkg/aggregator"
+	"github.com/kubewharf/kelemetry/pkg/aggregator/event"
 	"github.com/kubewharf/kelemetry/pkg/audit"
 	diffcache "github.com/kubewharf/kelemetry/pkg/diff/cache"
 	"github.com/kubewharf/kelemetry/pkg/manager"
@@ -152,7 +152,7 @@ func (decorator *decorator) Close() error {
 	return nil
 }
 
-func (decorator *decorator) Decorate(message *audit.Message, event *aggregator.Event) {
+func (decorator *decorator) Decorate(message *audit.Message, event *event.Event) {
 	logger := decorator.logger.
 		WithField("audit-id", message.AuditID).
 		WithField("title", event.Title).
@@ -197,7 +197,7 @@ const (
 func (decorator *decorator) tryDecorate(
 	logger logrus.FieldLogger,
 	message *audit.Message,
-	event *aggregator.Event,
+	event *event.Event,
 ) (cacheHitType, metrics.LabeledError) {
 	if message.ResponseStatus != nil && message.ResponseStatus.Code >= 300 {
 		event.Log(zconstants.LogTypeRealError, fmt.Sprintf("%s: %s", message.ResponseStatus.Reason, message.ResponseStatus.Message))
@@ -323,7 +323,7 @@ func (decorator *decorator) tryUpdateOnce(
 	object util.ObjectRef,
 	oldRv string,
 	newRv *string,
-	event *aggregator.Event,
+	event *event.Event,
 	message *audit.Message,
 ) (bool, error) {
 	var err error
@@ -363,7 +363,7 @@ func (decorator *decorator) tryCreateDeleteOnce(
 	ctx context.Context,
 	object util.ObjectRef,
 	snapshotName string,
-	event *aggregator.Event,
+	event *event.Event,
 ) (bool, error) {
 	snapshot, err := decorator.cache.FetchSnapshot(ctx, object, snapshotName)
 	if err != nil || snapshot == nil {

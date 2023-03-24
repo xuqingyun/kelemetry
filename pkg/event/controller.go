@@ -33,6 +33,7 @@ import (
 	"k8s.io/utils/clock"
 
 	"github.com/kubewharf/kelemetry/pkg/aggregator"
+	eventutil "github.com/kubewharf/kelemetry/pkg/aggregator/event"
 	"github.com/kubewharf/kelemetry/pkg/filter"
 	"github.com/kubewharf/kelemetry/pkg/k8s"
 	"github.com/kubewharf/kelemetry/pkg/k8s/discovery"
@@ -310,7 +311,7 @@ func (ctrl *controller) handleEvent(event *corev1.Event) {
 		return
 	}
 
-	aggregatorEvent := aggregator.NewEvent("status", event.Reason, eventTime, "event").
+	aggregatorEvent := eventutil.NewEvent("status", event.Reason, eventTime, "event").
 		WithTag("source", event.Source.Component).
 		WithTag("action", event.Action).
 		Log(zconstants.LogTypeEventMessage, event.Message)
